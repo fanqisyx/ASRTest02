@@ -1,0 +1,13 @@
+{
+  "commands": {
+    "move_to": {
+      "executor": "ModbusExecutor",
+      "action": "write_register",
+      "params": { "register": 1000, "value": "{target_value}" }
+    },
+    "transport_item": {
+      "executor": "ScriptExecutor",
+      "script_path": "scripts/transport_handler.py"
+    }
+  }
+}
