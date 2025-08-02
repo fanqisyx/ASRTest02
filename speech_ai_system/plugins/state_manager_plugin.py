@@ -5,34 +5,47 @@ import time
 
 hookimpl = pluggy.HookimplMarker("speech_ai_system")
 
-# --- Configuration ---
-MODBUS_HOST = "localhost"
-MODBUS_PORT = 502
-STATUS_REGISTER = 2000
-POLL_INTERVAL = 2 # seconds
-
 class StateManagerPlugin:
     def __init__(self, pm):
         self.pm = pm
-        self.client = ModbusClient(host=MODBUS_HOST, port=MODBUS_PORT, auto_open=True)
+        self.client = None
         self.is_running = False
         self.thread = None
         self.last_status = None
+        self.config = {} # Lazy loaded
+
+    def _load_config_and_init_client(self):
+        """Load config and initialize client if needed."""
+        if not self.config:
+            full_config = self.pm.hook.get_config()
+            self.config = full_config.get("state_manager", {})
+            server_config = full_config.get("servers", {})
+            self.config.update(server_config) # Merge server settings
+
+        host = self.config.get("modbus_host", "localhost")
+        port = self.config.get("modbus_port", 502)
+
+        if self.client is None or self.client.host != host or self.client.port != port:
+            self.client = ModbusClient(host=host, port=port, auto_open=True)
+            print(f"StateManagerPlugin: Initialized Modbus client for {host}:{port}")
 
     def _poll_loop(self):
         """The main loop for polling the robot's status."""
+        self._load_config_and_init_client()
+
+        status_register = self.config.get("status_register", 2000)
+        poll_interval = self.config.get("poll_interval_seconds", 2)
+
         while self.is_running:
             try:
                 if not self.client.is_open():
                     print("StateManagerPlugin: Modbus connection lost. Attempting to reconnect...")
                     self.client.open()
-                    # Wait a bit before retrying after a failed open
                     if not self.client.is_open():
-                        time.sleep(POLL_INTERVAL)
+                        time.sleep(poll_interval)
                         continue
 
-                # Read the status register
-                regs = self.client.read_holding_registers(STATUS_REGISTER, 1)
+                regs = self.client.read_holding_registers(status_register, 1)
 
                 if regs:
                     current_status = regs[0]
@@ -42,18 +55,17 @@ class StateManagerPlugin:
                     elif current_status != self.last_status:
                         print(f"StateManagerPlugin: Status changed from {self.last_status} to {current_status}")
                         self.last_status = current_status
-                        # Trigger the hook with the new status
-                        self.pm.hook.on_status_changed(status={"register": STATUS_REGISTER, "value": current_status})
+                        self.pm.hook.on_status_changed(status={"register": status_register, "value": current_status})
                 else:
-                    print("StateManagerPlugin: Failed to read status register.")
+                    print(f"StateManagerPlugin: Failed to read status register {status_register}.")
 
             except Exception as e:
                 print(f"StateManagerPlugin: Error in poll loop: {e}")
 
-            time.sleep(POLL_INTERVAL)
+            time.sleep(poll_interval)
 
     @hookimpl
-    def start_listening(self): # Piggyback on the existing start hook
+    def start_listening(self):
         """Starts the polling thread."""
         if not self.is_running:
             self.is_running = True
@@ -69,6 +81,6 @@ class StateManagerPlugin:
             self.is_running = False
             if self.thread:
                 self.thread.join()
-            if self.client.is_open():
+            if self.client and self.client.is_open():
                 self.client.close()
             print("StateManagerPlugin: Stopped polling.")

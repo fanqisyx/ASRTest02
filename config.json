@@ -1,0 +1,36 @@
+{
+  "general": {
+    "wake_words": [
+      "小车",
+      "机器人"
+    ]
+  },
+  "servers": {
+    "lm_studio_url": "http://localhost:1234/v1/chat/completions",
+    "modbus_host": "localhost",
+    "modbus_port": 502
+  },
+  "executor": {
+    "location_to_register_value": {
+      "A": 1,
+      "B": 2,
+      "C": 3,
+      "充电站": 99
+    }
+  },
+  "state_manager": {
+    "poll_interval_seconds": 2,
+    "status_register": 2000,
+    "status_code_mapping": {
+      "0": "待机中",
+      "1": "任务执行成功",
+      "2": "正在前往目的地",
+      "98": "电量不足，请充电",
+      "99": "正在充电"
+    }
+  },
+  "models": {
+    "vosk_model_url": "https://alphacephei.com/vosk/models/vosk-model-small-cn-0.22.zip",
+    "vosk_model_name": "vosk-model-small-cn-0.22"
+  }
+}

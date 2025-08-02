@@ -1,6 +1,5 @@
 import pluggy
 import vosk
-import sounddevice as sd
 import json
 import os
 import threading
@@ -51,6 +50,7 @@ class ASRPlugin:
         self.pm.hook.speak_text(text="在的")
 
         try:
+            import sounddevice as sd
             with sd.RawInputStream(samplerate=16000, blocksize=800, dtype='int16', channels=1, callback=self._recording_callback):
                 # Listen for a few seconds (e.g., 5 seconds)
                 for _ in range(int(16000 / 800 * 5)): # 5 seconds of recording

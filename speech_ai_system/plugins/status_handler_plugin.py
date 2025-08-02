@@ -2,15 +2,6 @@ import pluggy
 
 hookimpl = pluggy.HookimplMarker("speech_ai_system")
 
-# A simple mapping from status codes to human-readable text
-STATUS_CODE_TO_TEXT = {
-    0: "待机中",
-    1: "任务执行成功",
-    2: "正在前往目的地",
-    98: "电量不足，请充电",
-    99: "正在充电",
-}
-
 class StatusHandlerPlugin:
     def __init__(self, pm):
         self.pm = pm
@@ -18,9 +9,12 @@ class StatusHandlerPlugin:
     @hookimpl
     def on_status_changed(self, status: dict):
         """Handles the status change event by speaking it."""
-        status_value = status.get("value")
+        config = self.pm.hook.get_config()
+        status_map = config.get("state_manager", {}).get("status_code_mapping", {})
 
-        message = STATUS_CODE_TO_TEXT.get(status_value)
+        status_value = status.get("value")
+        # In the config file, keys are strings.
+        message = status_map.get(str(status_value))
 
         if message:
             print(f"StatusHandlerPlugin: Received status {status_value}, speaking message: '{message}'")

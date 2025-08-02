@@ -51,3 +51,12 @@ class SpeechAIHooks:
     @hookspec
     def resume_listening(self):
         """Tells the wake word listener to resume."""
+
+    # --- Configuration Hooks ---
+    @hookspec(firstresult=True)
+    def get_config(self) -> dict:
+        """Returns the entire configuration dictionary."""
+
+    @hookspec
+    def save_config(self, config_data: dict):
+        """Saves the provided dictionary to the configuration file."""

@@ -12,6 +12,7 @@ from .plugins.wakeword_plugin import WakeWordPlugin
 from .plugins.asr_plugin import ASRPlugin
 from .plugins.state_manager_plugin import StateManagerPlugin
 from .plugins.status_handler_plugin import StatusHandlerPlugin
+from .plugins.config_plugin import ConfigPlugin
 
 def get_plugin_manager():
     """Initializes and returns the plugin manager."""
@@ -21,9 +22,12 @@ def get_plugin_manager():
 
 def register_plugins(pm):
     """Registers all the system plugins."""
+    # Register the config plugin first
+    pm.register(ConfigPlugin())
+
     # Register functional plugins
-    pm.register(NLPPlugin())
-    pm.register(ExecutorPlugin())
+    pm.register(NLPPlugin(pm=pm)) # Pass pm to plugins that need it
+    pm.register(ExecutorPlugin(pm=pm))
     pm.register(ScriptExecutorPlugin())
     pm.register(TTSPlugin())
 
@@ -52,7 +56,7 @@ def main():
     register_plugins(pm)
 
     # Start the GUI in a background thread
-    run_gui()
+    run_gui(pm)
 
     # Call the hook to start all listening plugins
     pm.hook.start_listening()

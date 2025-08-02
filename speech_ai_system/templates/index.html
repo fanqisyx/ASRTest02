@@ -3,42 +3,88 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Speech AI System Status</title>
+    <title>Speech AI System Control</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f4f4f9; color: #333; margin: 0; padding: 20px; }
-        .container { max-width: 900px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        h1 { color: #444; }
-        #logs {
-            background-color: #2b2b2b;
-            color: #f1f1f1;
-            padding: 15px;
-            border-radius: 5px;
-            height: 500px;
-            overflow-y: scroll;
-            font-family: "Courier New", Courier, monospace;
-            font-size: 14px;
-            white-space: pre-wrap;
-        }
+        .container { max-width: 900px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h1, h2 { color: #444; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        #logs { background-color: #2b2b2b; color: #f1f1f1; padding: 15px; border-radius: 5px; height: 400px; overflow-y: scroll; font-family: "Courier New", Courier, monospace; font-size: 14px; white-space: pre-wrap; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-weight: bold; margin-bottom: 5px; }
+        .form-group input[type="text"], .form-group input[type="number"], .form-group textarea { width: 95%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+        .form-group textarea { min-height: 100px; resize: vertical; }
+        .btn { background-color: #007bff; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        .btn:hover { background-color: #0056b3; }
+        #save-status { margin-top: 10px; font-weight: bold; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Speech AI System - Live Log</h1>
+        <h1>Speech AI System</h1>
+    </div>
+
+    <div class="container">
+        <h2>Settings</h2>
+        <form id="settings-form">
+            <fieldset>
+                <legend><h3>General</h3></legend>
+                <div class="form-group">
+                    <label for="wake_words">Wake Words (comma-separated)</label>
+                    <input type="text" id="wake_words">
+                </div>
+            </fieldset>
+
+            <fieldset>
+                <legend><h3>Servers</h3></legend>
+                <div class="form-group">
+                    <label for="lm_studio_url">LM Studio URL</label>
+                    <input type="text" id="lm_studio_url">
+                </div>
+                <div class="form-group">
+                    <label for="modbus_host">Modbus Host</label>
+                    <input type="text" id="modbus_host">
+                </div>
+                <div class="form-group">
+                    <label for="modbus_port">Modbus Port</label>
+                    <input type="number" id="modbus_port">
+                </div>
+            </fieldset>
+
+            <fieldset>
+                <legend><h3>State Manager</h3></legend>
+                <div class="form-group">
+                    <label for="poll_interval_seconds">Poll Interval (seconds)</label>
+                    <input type="number" id="poll_interval_seconds">
+                </div>
+                <div class="form-group">
+                    <label for="status_register">Status Register</label>
+                    <input type="number" id="status_register">
+                </div>
+                <div class="form-group">
+                    <label for="status_code_mapping">Status Code Mapping (JSON)</label>
+                    <textarea id="status_code_mapping"></textarea>
+                </div>
+            </fieldset>
+
+            <button type="button" class="btn" id="save-btn">Save Settings</button>
+            <p id="save-status"></p>
+        </form>
+    </div>
+
+    <div class="container">
+        <h2>Live Log</h2>
         <pre id="logs">Initializing log viewer...</pre>
     </div>
 
     <script>
+        // --- Log Fetching ---
         const logElement = document.getElementById('logs');
-
         async function fetchLogs() {
             try {
                 const response = await fetch('/logs');
                 const logs = await response.json();
                 if (logs.length > 0) {
-                    logs.forEach(log => {
-                        logElement.textContent += log + '\n';
-                    });
-                    // Auto-scroll to the bottom
+                    logs.forEach(log => { logElement.textContent += log + '\n'; });
                     logElement.scrollTop = logElement.scrollHeight;
                 }
             } catch (error) {
@@ -46,9 +92,90 @@
                 logElement.textContent += 'Error fetching logs. Is the server running?\n';
             }
         }
-
-        // Fetch logs every 2 seconds
         setInterval(fetchLogs, 2000);
+
+        // --- Settings Management ---
+        const form = {
+            wake_words: document.getElementById('wake_words'),
+            lm_studio_url: document.getElementById('lm_studio_url'),
+            modbus_host: document.getElementById('modbus_host'),
+            modbus_port: document.getElementById('modbus_port'),
+            poll_interval_seconds: document.getElementById('poll_interval_seconds'),
+            status_register: document.getElementById('status_register'),
+            status_code_mapping: document.getElementById('status_code_mapping')
+        };
+        const saveBtn = document.getElementById('save-btn');
+        const saveStatus = document.getElementById('save-status');
+        let currentConfig = {};
+
+        async function loadSettings() {
+            try {
+                const response = await fetch('/api/config');
+                currentConfig = await response.json();
+
+                form.wake_words.value = currentConfig.general.wake_words.join(', ');
+                form.lm_studio_url.value = currentConfig.servers.lm_studio_url;
+                form.modbus_host.value = currentConfig.servers.modbus_host;
+                form.modbus_port.value = currentConfig.servers.modbus_port;
+                form.poll_interval_seconds.value = currentConfig.state_manager.poll_interval_seconds;
+                form.status_register.value = currentConfig.state_manager.status_register;
+                form.status_code_mapping.value = JSON.stringify(currentConfig.state_manager.status_code_mapping, null, 2);
+
+            } catch (error) {
+                console.error('Error loading settings:', error);
+                saveStatus.textContent = 'Error loading settings.';
+                saveStatus.style.color = 'red';
+            }
+        }
+
+        async function saveSettings() {
+            try {
+                // Construct the config object from form values
+                const newConfig = {
+                    general: {
+                        wake_words: form.wake_words.value.split(',').map(s => s.trim()).filter(Boolean)
+                    },
+                    servers: {
+                        lm_studio_url: form.lm_studio_url.value,
+                        modbus_host: form.modbus_host.value,
+                        modbus_port: parseInt(form.modbus_port.value, 10)
+                    },
+                    state_manager: {
+                        poll_interval_seconds: parseInt(form.poll_interval_seconds.value, 10),
+                        status_register: parseInt(form.status_register.value, 10),
+                        status_code_mapping: JSON.parse(form.status_code_mapping.value)
+                    },
+                    // Preserve the models section as it's not editable
+                    models: currentConfig.models || {}
+                };
+
+                const response = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newConfig)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server responded with status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                saveStatus.textContent = result.message;
+                saveStatus.style.color = 'green';
+
+            } catch (error) {
+                console.error('Error saving settings:', error);
+                saveStatus.textContent = `Error saving settings: ${error.message}`;
+                saveStatus.style.color = 'red';
+            }
+
+            setTimeout(() => { saveStatus.textContent = ''; }, 5000);
+        }
+
+        // Initial load
+        document.addEventListener('DOMContentLoaded', loadSettings);
+        // Save button listener
+        saveBtn.addEventListener('click', saveSettings);
     </script>
 </body>
 </html>

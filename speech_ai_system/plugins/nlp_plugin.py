@@ -4,8 +4,8 @@ import requests
 
 hookimpl = pluggy.HookimplMarker("speech_ai_system")
 
-# --- Configuration ---
-LM_STUDIO_URL = "http://localhost:1234/v1/chat/completions"
+# The system prompt is complex and better kept in code for now,
+# but could be moved to a separate file later.
 SYSTEM_PROMPT = """
 You are a helpful AI assistant for a voice-controlled robot. Your task is to understand the user's speech and convert it into a standardized JSON command.
 
@@ -47,11 +47,16 @@ Your response:
 
 class NLPPlugin:
     """A plugin for natural language processing via LM Studio."""
+    def __init__(self, pm):
+        self.pm = pm
 
     @hookimpl
     def process_asr_result(self, text: str) -> dict:
         """Parses text into a command by calling a local LLM."""
-        print(f"NLPPlugin: Received text '{text}', sending to LM Studio...")
+        config = self.pm.hook.get_config()
+        lm_studio_url = config.get("servers", {}).get("lm_studio_url", "http://localhost:1234/v1/chat/completions")
+
+        print(f"NLPPlugin: Received text '{text}', sending to LM Studio at {lm_studio_url}...")
 
         headers = {"Content-Type": "application/json"}
         payload = {
@@ -64,7 +69,7 @@ class NLPPlugin:
         }
 
         try:
-            response = requests.post(LM_STUDIO_URL, headers=headers, json=payload, timeout=20)
+            response = requests.post(lm_studio_url, headers=headers, json=payload, timeout=20)
             response.raise_for_status() # Raise an exception for bad status codes
 
             # Extract the content from the response
@@ -85,7 +90,9 @@ class NLPPlugin:
                 return None
 
         except requests.exceptions.RequestException as e:
-            print(f"NLPPlugin: Error - Could not connect to LM Studio at {LM_STUDIO_URL}. Is it running?")
+            config = self.pm.hook.get_config()
+            lm_studio_url = config.get("servers", {}).get("lm_studio_url", "http://localhost:1234/v1/chat/completions")
+            print(f"NLPPlugin: Error - Could not connect to LM Studio at {lm_studio_url}. Is it running?")
             print(f"  Details: {e}")
             return None
         except (KeyError, IndexError) as e:
