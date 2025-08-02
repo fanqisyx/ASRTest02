@@ -1,1 +1,7 @@
 pluggy
+vosk
+sounddevice
+pyttsx3
+pyModbusTCP
+flask
+requests

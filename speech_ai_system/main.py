@@ -1,9 +1,17 @@
 import pluggy
+import time
+import sys
 from .hooks import SpeechAIHooks
+from .gui import run_gui, QueueIO, log_queue
 from .plugins.nlp_plugin import NLPPlugin
 from .plugins.executor_plugin import ExecutorPlugin
 from .plugins.command_router_plugin import CommandRouterPlugin
 from .plugins.script_executor_plugin import ScriptExecutorPlugin
+from .plugins.tts_plugin import TTSPlugin
+from .plugins.wakeword_plugin import WakeWordPlugin
+from .plugins.asr_plugin import ASRPlugin
+from .plugins.state_manager_plugin import StateManagerPlugin
+from .plugins.status_handler_plugin import StatusHandlerPlugin
 
 def get_plugin_manager():
     """Initializes and returns the plugin manager."""
@@ -13,39 +21,54 @@ def get_plugin_manager():
 
 def register_plugins(pm):
     """Registers all the system plugins."""
+    # Register functional plugins
     pm.register(NLPPlugin())
     pm.register(ExecutorPlugin())
     pm.register(ScriptExecutorPlugin())
-    # The CommandRouterPlugin needs the plugin manager instance to call other hooks.
-    # We use a hookwrapper, so its registration order relative to the wrapped hook is important.
-    # Pluggy ensures wrappers execute around the non-wrapper implementations.
+    pm.register(TTSPlugin())
+
+    # Register background service plugins
+    pm.register(WakeWordPlugin(pm=pm))
+    pm.register(ASRPlugin(pm=pm))
+    pm.register(StateManagerPlugin(pm=pm))
+    pm.register(StatusHandlerPlugin(pm=pm))
+
+    # The CommandRouterPlugin should be last to wrap other hooks
     pm.register(CommandRouterPlugin(pm=pm))
+
     return pm
 
 def main():
     """Main application loop."""
+    # This print statement goes to the actual console before stdout is redirected
+    print("Starting Speech AI System...")
+    print("A web-based GUI will be available at http://localhost:5001")
+
+    # Redirect stdout to our log queue
+    sys.stdout = QueueIO(log_queue)
+
     print("--- Initializing Speech AI System ---")
     pm = get_plugin_manager()
     register_plugins(pm)
 
-    print("\n--- System Initialized. Starting Simulation ---")
+    # Start the GUI in a background thread
+    run_gui()
 
-    # --- Test Case 1: Route to ModbusExecutor ---
-    print("\n--- Test Case 1: ASR Result '小车小车，去A点' ---")
-    asr_text_1 = "小车小车，去A点"
-    # Calling the hook will trigger the entire chain:
-    # CommandRouterPlugin(wrapper start) -> NLPPlugin -> CommandRouterPlugin(wrapper end) -> ExecutorPlugin
-    pm.hook.process_asr_result(text=asr_text_1)
+    # Call the hook to start all listening plugins
+    pm.hook.start_listening()
 
-    print("\n" + "="*40 + "\n")
+    print("\n--- System Initialized. Listening for wake word... (Press Ctrl+C to exit) ---")
 
-    # --- Test Case 2: Route to ScriptExecutor ---
-    print("--- Test Case 2: ASR Result '机器人，开始运输' ---")
-    asr_text_2 = "机器人，开始运输"
-    # Calling the hook for the second case
-    pm.hook.process_asr_result(text=asr_text_2)
-
-    print("\n--- Simulation Finished ---")
+    try:
+        # Keep the main thread alive
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("\n--- Shutting down ---")
+    finally:
+        # Call the shutdown hook for all plugins
+        pm.hook.on_shutdown()
+        print("--- System Shutdown Complete ---")
 
 if __name__ == "__main__":
     main()

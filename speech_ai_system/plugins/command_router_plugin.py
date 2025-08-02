@@ -32,6 +32,9 @@ class CommandRouterPlugin:
 
         if nlp_result:
             print(f"CommandRouterPlugin: NLP returned: {nlp_result}. Routing command...")
+            # Speak the response if available
+            if "say" in nlp_result and nlp_result["say"]:
+                self.pm.hook.speak_text(text=nlp_result["say"])
             self.route_command(nlp_result)
         else:
             print("CommandRouterPlugin: NLP did not return a result. No command to route.")
@@ -48,7 +51,7 @@ class CommandRouterPlugin:
 
         if executor_type == "ModbusExecutor":
             print(f"CommandRouterPlugin: Routing to ModbusExecutor...")
-            self.pm.hook.execute_command(command_data=command_data)
+            self.pm.hook.execute_command(command_config=command_config, command_data=command_data)
 
         elif executor_type == "ScriptExecutor":
             script_path = command_config.get("script_path")

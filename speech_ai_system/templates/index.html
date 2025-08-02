@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speech AI System Status</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f4f4f9; color: #333; margin: 0; padding: 20px; }
+        .container { max-width: 900px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h1 { color: #444; }
+        #logs {
+            background-color: #2b2b2b;
+            color: #f1f1f1;
+            padding: 15px;
+            border-radius: 5px;
+            height: 500px;
+            overflow-y: scroll;
+            font-family: "Courier New", Courier, monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Speech AI System - Live Log</h1>
+        <pre id="logs">Initializing log viewer...</pre>
+    </div>
+
+    <script>
+        const logElement = document.getElementById('logs');
+
+        async function fetchLogs() {
+            try {
+                const response = await fetch('/logs');
+                const logs = await response.json();
+                if (logs.length > 0) {
+                    logs.forEach(log => {
+                        logElement.textContent += log + '\n';
+                    });
+                    // Auto-scroll to the bottom
+                    logElement.scrollTop = logElement.scrollHeight;
+                }
+            } catch (error) {
+                console.error('Error fetching logs:', error);
+                logElement.textContent += 'Error fetching logs. Is the server running?\n';
+            }
+        }
+
+        // Fetch logs every 2 seconds
+        setInterval(fetchLogs, 2000);
+    </script>
+</body>
+</html>
