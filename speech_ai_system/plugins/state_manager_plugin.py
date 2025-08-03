@@ -38,10 +38,10 @@ class StateManagerPlugin:
 
         while self.is_running:
             try:
-                if not self.client.is_open():
+                if not self.client.is_open:
                     print("StateManagerPlugin: Modbus connection lost. Attempting to reconnect...")
                     self.client.open()
-                    if not self.client.is_open():
+                    if not self.client.is_open:
                         time.sleep(poll_interval)
                         continue
 
@@ -81,6 +81,6 @@ class StateManagerPlugin:
             self.is_running = False
             if self.thread:
                 self.thread.join()
-            if self.client and self.client.is_open():
+            if self.client and self.client.is_open:
                 self.client.close()
             print("StateManagerPlugin: Stopped polling.")
